@@ -1,4 +1,4 @@
-# porkbun-dynamic-dns-bash
+# Description
 
 This is a minimalist dynamic DNS client written in Bash based upon the Porkbun Python client at https://github.com/porkbundomains/porkbun-dynamic-dns-python. The command line parameters of the original program have been extended so that it is easier to integrate the script into other Bash scripts.
 
@@ -8,7 +8,7 @@ Before using the script make sure that you have the jq and curl packages install
 sudo apt install jq curl
 ```
 
-#Usage
+## Usage
 
 ```
 porkbun-ddns.sh /path/to/config.json example.com
@@ -28,7 +28,7 @@ porkbun-ddns.sh /path/to/config.json example.com '*' -i 10.0.0.1
 
 Creates an A record '*.example.com' that points to the IP address 10.0.0.1.
 
-#Remarks
+## Remarks
 
 For further information on how this script can be used please check the manual of the orginial Python app at https://github.com/porkbundomains/porkbun-dynamic-dns-python.
 
