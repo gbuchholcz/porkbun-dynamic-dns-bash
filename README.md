@@ -13,21 +13,27 @@ sudo apt install jq curl
 ```
 porkbun-ddns.sh /path/to/config.json example.com
 ```
-        Creates an A record 'example.com' that points to the external IP address as determined by the Porkbun API.
+
+Creates an A record 'example.com' that points to the external IP address as determined by the Porkbun API.
 
 ```
 porkbun-ddns.sh example.com www -s < /path/to/config.json
 ```
-        Creates an A record 'www.example.com' that points to the IP address as determined by the Porkbun API. The configuration is read from the STDIN.
+
+Creates an A record 'www.example.com' that points to the IP address as determined by the Porkbun API. The configuration is read from the STDIN.
 
 ```
 porkbun-ddns.sh /path/to/config.json example.com '*' -i 10.0.0.1
 ```
-        Creates an A record '*.example.com' that points to the IP address 10.0.0.1.
+
+Creates an A record '*.example.com' that points to the IP address 10.0.0.1.
 
 #Remarks
 
 For further information on how this script can be used please check the manual of the orginial Python app at https://github.com/porkbundomains/porkbun-dynamic-dns-python.
+
 This script has been tested only on Ubuntu 22.04 so it might not work on other systems.
+
 After successfully executing the script it might take several minutes before the changes take effect.
+
 Despite the fact that the script has been tested and in use without any issues, be aware, that it may contain bugs that can mess up your DNS settings.
