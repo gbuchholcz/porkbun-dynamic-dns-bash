@@ -1,4 +1,4 @@
-# Description
+# Porkbun Dynamic Dns Bash
 
 This is a minimalist dynamic DNS client written in Bash based upon the Porkbun Python client at https://github.com/porkbundomains/porkbun-dynamic-dns-python. The command line parameters of the original program have been extended so that it is easier to integrate the script into other Bash scripts.
 
