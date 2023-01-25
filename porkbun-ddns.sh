@@ -1,9 +1,27 @@
 #!/bin/bash
+# This is a minimalist dynamic DNS client written in Bash based upon
+# the Porkbun Python client at https://github.com/porkbundomains/porkbun-dynamic-dns-python.
+#
+# Copyright 2022 Gergoe Buchholcz
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 PORKBUN_DOMAIN=""
 PORKBUN_SUBDOMAIN=""
 PORKBUN_VERBOSE=0
 PORKBUN_IP=""
+PORKBUN_DISPLAY_HELP=0
 PORKBUN_API_URL="https://api-ipv4.porkbun.com/api/json/v3"
 
 PORKBUN_API_KEY=""
@@ -17,13 +35,24 @@ PORKBUN_CREATE_ENDPOINT=""
 PORKBUN_API_STATUS_SUCCESS="SUCCESS"
 
 porkbun::print_help() {
-  porkbun::print "Porkbun Dynamic DNS client, Bash Edition\n\n"
+  porkbun::print "usage: porkbun-ddns.sh [<config>] <domain> [subdomain] [-i <ip_address>] [-s|-stdin-config] [-v | --verbose]\n"
+  porkbun::print "Creates or updates an A DNS record of a domain and subdomain that points to a specific IP address.\n\n"
+  porkbun::print "If the -s flag is set then the configuration is read from the STDIN otherwise the <config> file is read.\n\n"
+  porkbun::print "\t-i <ip_address>       The IP address that the A record points to. If it is not set then the public IP address as determined by the Porkbun API will be used.\n"
+  porkbun::print "\t-s, --stdin-config    The configuration is read from the STDIN instead of a file. If the flag is set then the <config> argument must be omitted.\n"
+  porkbun::print "\t-v, --verbose         Be verbose.\n"
+  porkbun::print "\t    --help            Print a summary of the command-line usage of find and exit.\n\n"
+  porkbun::print "Exit status:\n"
+  porkbun::print "\tporkbun-ddns.sh exits with status 0 if it has been successfully executed, greater than 0 if errors occur.\n\n"
+  porkbun::print "Remarks:\n"
+  porkbun::print "\tNote, that before creating a new A DNS record the script deletes any A, ALIAS and CNAME records for the given domain and subdomain.\n\n"
+  porkbun::print "Examples:\n\n"
   porkbun::print "porkbun-ddns.sh /path/to/config.json example.com\n"
-  porkbun::print "porkbun-ddns.sh /path/to/config.json example.com -v\n"
+  porkbun::print "\tCreates an A record 'example.com' that points to the IP address as determined by the Porkbun API.\n\n"
   porkbun::print "porkbun-ddns.sh example.com www -s < /path/to/config.json\n"
-  porkbun::print "porkbun-ddns.sh /path/to/config.json example.com www\n"
-  porkbun::print "porkbun-ddns.sh /path/to/config.json example.com '*'\n"
-  porkbun::print "porkbun-ddns.sh /path/to/config.json example.com -i 10.0.0.1\n"
+  porkbun::print "\tCreates an A record 'www.example.com' that points to the IP address as determined by the Porkbun API. The configuration is read from the STDIN.\n\n"
+  porkbun::print "porkbun-ddns.sh /path/to/config.json example.com '*' -i 10.0.0.1\n"
+  porkbun::print "\tCreates an A record '*.example.com' that points to the IP address 10.0.0.1.\n\n"
 }
 
 porkbun::print_verbose() {
@@ -69,6 +98,10 @@ porkbun::parse_arguments() {
       -s|--stdin-config)
         credentials_from_stdin=1
         shift
+        ;;
+      --help)
+        PORKBUN_DISPLAY_HELP=1
+        return 0
         ;;
       -*)
         porkbun::print_error "Unknown option $1\n"
@@ -175,6 +208,11 @@ porkbun::main() {
   if ! porkbun::parse_arguments "$@"; then
     porkbun::print_help
     exit 1
+  fi
+  
+  if (( PORKBUN_DISPLAY_HELP == 1 )); then
+    porkbun::print_help
+    exit 0  
   fi
 
   if [[ -z ${PORKBUN_IP} ]]; then
