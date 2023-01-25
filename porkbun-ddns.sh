@@ -35,7 +35,7 @@ PORKBUN_CREATE_ENDPOINT=""
 PORKBUN_API_STATUS_SUCCESS="SUCCESS"
 
 porkbun::print_help() {
-  porkbun::print "usage: porkbun-ddns.sh [<config>] <domain> [subdomain] [-i <ip_address>] [-s|-stdin-config] [-v | --verbose]\n"
+  porkbun::print "usage: porkbun-ddns.sh [<config>] <domain> [subdomain] [-i <ip_address>] [-s|--stdin-config] [-v|--verbose] [--help]\n"
   porkbun::print "Creates or updates an A DNS record of a domain and subdomain that points to a specific IP address.\n\n"
   porkbun::print "If the -s flag is set then the configuration is read from the STDIN otherwise the <config> file is read.\n\n"
   porkbun::print "\t-i <ip_address>       The IP address that the A record points to. If it is not set then the public IP address as determined by the Porkbun API will be used.\n"
@@ -209,7 +209,7 @@ porkbun::main() {
     porkbun::print_help
     exit 1
   fi
-  
+
   if (( PORKBUN_DISPLAY_HELP == 1 )); then
     porkbun::print_help
     exit 0  
