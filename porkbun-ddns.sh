@@ -41,7 +41,7 @@ porkbun::print_help() {
   porkbun::print "\t-i <ip_address>       The IP address that the A record points to. If it is not set then the public IP address as determined by the Porkbun API will be used.\n"
   porkbun::print "\t-s, --stdin-config    The configuration is read from the STDIN instead of a file. If the flag is set then the <config> argument must be omitted.\n"
   porkbun::print "\t-v, --verbose         Be verbose.\n"
-  porkbun::print "\t    --help            Print a summary of the command-line usage of find and exit.\n\n"
+  porkbun::print "\t    --help            Print a summary of the command-line usage and exit.\n\n"
   porkbun::print "Exit status:\n"
   porkbun::print "\tporkbun-ddns.sh exits with status 0 if it has been successfully executed, greater than 0 if errors occur.\n\n"
   porkbun::print "Remarks:\n"
