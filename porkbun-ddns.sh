@@ -22,7 +22,7 @@ PORKBUN_SUBDOMAIN=""
 PORKBUN_VERBOSE=0
 PORKBUN_IP=""
 PORKBUN_DISPLAY_HELP=0
-PORKBUN_API_URL="https://api-ipv4.porkbun.com/api/json/v3"
+PORKBUN_API_URL="https://api.porkbun.com/api/json/v3"
 
 PORKBUN_API_KEY=""
 PORKBUN_SECRET_KEY=""
