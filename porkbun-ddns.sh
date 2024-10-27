@@ -34,18 +34,27 @@ PORKBUN_CREATE_ENDPOINT=""
 
 PORKBUN_API_STATUS_SUCCESS="SUCCESS"
 
+PORKBUN_SSM_PARAMETER_API_KEY_NAME=""
+PORKBUN_SSM_PARAMETER_SECRET_KEY_NAME=""
+
+PORKBUN_CONFIGURATION_PATH=""
+
 porkbun::print_help() {
-  porkbun::print "usage: porkbun-ddns.sh [<config>] <domain> [subdomain] [-i <ip_address>] [-s|--stdin-config] [-v|--verbose] [--help]\n"
+  porkbun::print "usage: porkbun-ddns.sh <domain> [subdomain] [-c|--config <config_file>] [-i <ip_address>] [-s|--stdin-config] [-v|--verbose] [--help]\n"
   porkbun::print "Creates or updates an A DNS record of a domain and subdomain that points to a specific IP address.\n\n"
   porkbun::print "If the -s flag is set then the configuration is read from the STDIN otherwise the <config> file is read.\n\n"
+  porkbun::print "\t-c, --configuration <config_file>        The path to the config file that contains the API and Secret keys and the URL to the Porkbun API\n"
   porkbun::print "\t-i <ip_address>       The IP address that the A record points to. If it is not set then the public IP address as determined by the Porkbun API will be used.\n"
   porkbun::print "\t-s, --stdin-config    The configuration is read from the STDIN instead of a file. If the flag is set then the <config> argument must be omitted.\n"
+  porkbun::print "\t-akp, --aws-api-key-parameter-name        The name of the API Key as stored in the AWS Systems Manager Parameter Store, resolving the value happens after reading the config if any\n"
+  porkbun::print "\t-skp, --aws-secret-key-parameter-name     The name of the Secret Key as stored in the AWS Systems Manager Parameter Store, resolving the value happens after reading the config if any\n"
   porkbun::print "\t-v, --verbose         Be verbose.\n"
   porkbun::print "\t    --help            Print a summary of the command-line usage and exit.\n\n"
   porkbun::print "Exit status:\n"
   porkbun::print "\tporkbun-ddns.sh exits with status 0 if it has been successfully executed, greater than 0 if errors occur.\n\n"
   porkbun::print "Remarks:\n"
-  porkbun::print "\tNote, that before creating a new A DNS record the script deletes any A, ALIAS and CNAME records for the given domain and subdomain.\n\n"
+  porkbun::print "\tNote, that before creating a new A DNS record the script deletes any A, ALIAS and CNAME records for the given domain and subdomain.\n"
+  porkbun::print "\tIf the API or Secret Keys are read from the AWS SSM Parameter Store then the AWS cli has to be setup and the values have to be accessible by the user.\n\n"
   porkbun::print "Examples:\n\n"
   porkbun::print "porkbun-ddns.sh /path/to/config.json example.com\n"
   porkbun::print "\tCreates an A record 'example.com' that points to the IP address as determined by the Porkbun API.\n\n"
@@ -70,7 +79,7 @@ porkbun::print() {
 }
 
 porkbun::parse_arguments() {
-  local positional_args credentials_from_stdin configuration configuration_path ip_address_pattern
+  local positional_args credentials_from_stdin configuration configuration_path ip_address_pattern error_code
 
   ip_address_pattern="^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$"
   readonly ip_address_pattern
@@ -87,6 +96,22 @@ porkbun::parse_arguments() {
           porkbun::print_error "The IP address ${PORKBUN_IP} is not valid!\n"
           return 1
         fi
+        shift
+        shift
+        ;;
+      -c|--configuration)
+        PORKBUN_CONFIGURATION_PATH="$2"
+        shift
+        shift
+        ;;
+
+      -akp|--aws-api-key-parameter-name)
+        PORKBUN_SSM_PARAMETER_API_KEY_NAME="$2"
+        shift
+        shift
+        ;;
+      -skp|--aws-secret-key-parameter-name)
+        PORKBUN_SSM_PARAMETER_SECRET_KEY_NAME="$2"
         shift
         shift
         ;;
@@ -119,7 +144,7 @@ porkbun::parse_arguments() {
     if [[ ${#positional_args[@]} -gt 0 ]]; then
       PORKBUN_DOMAIN=${positional_args[0]}
     else
-      porkbun::print_error "The number of positional arguments has to be at least 1 if the -s flag is set.\n"
+      porkbun::print_error "At least one positional argument (domain) is expected.\n"
       return 3
     fi
     [[ ${#positional_args[@]} -gt 1 ]] && PORKBUN_SUBDOMAIN=${positional_args[1]}
@@ -129,28 +154,57 @@ porkbun::parse_arguments() {
     }
 
   else
-    [[ ${#positional_args[@]} -lt 2 ]] && {
-      porkbun::print_error "The number of positional arguments has to be at least 2 unless the -s flag is set.\n"
+    [[ ${#positional_args[@]} -lt 1 ]] && {
+      porkbun::print_error "At least one positional argument (domain) is expected.\n"
       return 3
     }
-    configuration_path=${positional_args[0]}
-    if ! [[ -f ${configuration_path} ]]; then
-      porkbun::print_error "The configuration file cannot be found!\n"
-      return 6    
+
+    if [[ -n ${PORKBUN_CONFIGURATION_PATH} ]]; then
+      if [[ ! -f ${configuration_path} ]]; then
+        porkbun::print_error "The configuration file (${configuration_path}) cannot be found!\n"
+        return 6    
+      fi
+      configuration=$(cat "${configuration_path}")
     fi
-    configuration=$(cat "${configuration_path}")
-    PORKBUN_DOMAIN=${positional_args[1]}
-    [[ ${#positional_args[@]} -gt 2 ]] && PORKBUN_SUBDOMAIN=${positional_args[2]}
-    [[ ${#positional_args[@]} -gt 3 ]] && {
+    
+    PORKBUN_DOMAIN=${positional_args[0]}
+    [[ ${#positional_args[@]} -gt 1 ]] && PORKBUN_SUBDOMAIN=${positional_args[1]}
+    [[ ${#positional_args[@]} -gt 2 ]] && {
       porkbun::print_error "Unknown positional argument ${positional_args[3]}!\n"
       return 7
     }
   fi
 
-  if ! porkbun::parse_configuration "${configuration}"; then
-    return 8
+  if [[ -n ${configuration} ]]; then
+    if ! porkbun::parse_configuration "${configuration}"; then
+      return 8
+    fi
   fi
+  
+  if [[ -n PORKBUN_SSM_PARAMETER_API_KEY_NAME ]]; then
+    PORKBUN_API_KEY=$(porkbun::get_ssm_parameter "${PORKBUN_SSM_PARAMETER_API_KEY_NAME}")
+    error_code=$?
+    if [[ ${error_code} -ne 0 ]]; then
+      porkbun::print_error "Querying the API Key from the Parameter Store failed!\n"
+      return 9
+    fi
+  fi
+
+  if [[ -n PORKBUN_SSM_PARAMETER_SECRET_KEY_NAME ]]; then
+    PORKBUN_SECRET_KEY=$(porkbun::get_ssm_parameter "${PORKBUN_SSM_PARAMETER_SECRET_KEY_NAME}")
+    error_code=$?
+    if [[ ${error_code} -ne 0 ]]; then
+      porkbun::print_error "Querying the Secret Key from the Parameter Store failed!\n"
+      return 9
+    fi
+  fi
+
   porkbun::set_api_endpoints
+
+  if [[ -z PORKBUN_API_KEY ]] || [[ -z PORKBUN_SECRET_KEY ]]; then
+      porkbun::print_error "The Prokbun credentials are not configured correctly!\n"
+      return 10    
+  fi
 
   readonly PORKBUN_DOMAIN PORKBUN_SUBDOMAIN PORKBUN_VERBOSE PORKBUN_API_URL PORKBUN_API_KEY
   readonly PORKBUN_SECRET_KEY  PORKBUN_PING_ENDPOINT PORKBUN_RETRIEVE_ENDPOINT PORKBUN_DELETE_ENDPOINT
@@ -165,7 +219,8 @@ porkbun::parse_arguments() {
   porkbun::print_verbose "\tretrieve api endpoint: ${PORKBUN_RETRIEVE_ENDPOINT}\n"
   porkbun::print_verbose "\tdelete api endpoint: ${PORKBUN_DELETE_ENDPOINT}\n"
   porkbun::print_verbose "\tcreate api endpoint: ${PORKBUN_CREATE_ENDPOINT}\n"
-
+  porkbun::print_verbose "\tAPI key:             ${PORKBUN_API_KEY//[a-zA-Z0-9]/*}\n"
+  porkbun::print_verbose "\tSecret key:          ${PORKBUN_SECRET_KEY//[a-zA-Z0-9]/*}\n"
   return 0
 }
 
@@ -200,6 +255,12 @@ porkbun::set_api_endpoints() {
   PORKBUN_RETRIEVE_ENDPOINT="${PORKBUN_API_URL}/dns/retrieve/${PORKBUN_DOMAIN}"
   PORKBUN_DELETE_ENDPOINT="${PORKBUN_API_URL}/dns/delete/${PORKBUN_DOMAIN}"
   PORKBUN_CREATE_ENDPOINT="${PORKBUN_API_URL}/dns/create/${PORKBUN_DOMAIN}"  
+}
+
+porkbun::get_ssm_parameter() {
+  parameter_name=$1
+  aws ssm get-parameter --name "${parameter_name}" --with-decryption --query "Parameter.Value" --output text
+  return $?
 }
 
 porkbun::main() {
